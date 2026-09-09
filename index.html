@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRO_SPEC :: iPhone Fact Scanner</title>
+<style>
+  :root{
+    --bg-0:#050708;
+    --bg-1:#0a0f12;
+    --panel:#0d1417;
+    --line:rgba(0,229,255,0.14);
+    --line-soft:rgba(0,229,255,0.06);
+    --cyan:#00e5ff;
+    --cyan-dim:#0891a8;
+    --magenta:#ff2f6e;
+    --amber:#ffb020;
+    --text-0:#e9f6f9;
+    --text-1:#6f97a0;
+    --mono: "SF Mono", "JetBrains Mono", ui-monospace, "Courier New", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+  }
+
+  *{box-sizing:border-box;}
+
+  html,body{
+    margin:0;
+    min-height:100vh;
+    background:var(--bg-0);
+    color:var(--text-0);
+    font-family:var(--sans);
+    overflow-x:hidden;
+  }
+
+  body{
+    background-image:
+      linear-gradient(var(--line-soft) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line-soft) 1px, transparent 1px),
+      radial-gradient(circle at 50% 0%, rgba(0,229,255,0.08) 0%, transparent 55%);
+    background-size:34px 34px, 34px 34px, 100% 100%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+
+  .app{
+    width:100%;
+    max-width:430px;
+    padding:22px 18px 34px;
+    display:flex;
+    flex-direction:column;
+    min-height:100vh;
+  }
+
+  /* ---------- HEADER ---------- */
+  .topbar{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    margin-bottom:16px;
+  }
+  .brand .kicker{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:0.14em;
+    color:var(--cyan-dim);
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .brand .kicker .blip{
+    width:6px;height:6px;border-radius:50%;
+    background:var(--cyan);
+    box-shadow:0 0 8px var(--cyan);
+    animation:blip 1.6s ease-in-out infinite;
+  }
+  @keyframes blip{ 0%,100%{opacity:1;} 50%{opacity:.25;} }
+  .brand .title{
+    font-size:21px;
+    font-weight:700;
+    letter-spacing:-0.01em;
+    margin-top:4px;
+  }
+  .brand .title span{color:var(--cyan);}
+
+  .score{
+    font-family:var(--mono);
+    font-size:12.5px;
+    color:var(--text-0);
+    border:1px solid var(--line);
+    background:rgba(0,229,255,0.05);
+    padding:7px 11px;
+    border-radius:4px;
+    text-align:right;
+    line-height:1.5;
+  }
+  .score .label{color:var(--text-1); font-size:10px; letter-spacing:.08em;}
+
+  /* ---------- PROGRESS ---------- */
+  .segments{
+    display:flex;
+    gap:5px;
+    margin-bottom:22px;
+  }
+  .seg{
+    flex:1;
+    height:4px;
+    border-radius:2px;
+    background:rgba(255,255,255,0.08);
+    overflow:hidden;
+  }
+  .seg.done{background:var(--cyan); box-shadow:0 0 6px var(--cyan);}
+  .seg.current{background:linear-gradient(90deg, var(--cyan), rgba(0,229,255,0.1));}
+
+  /* ---------- STAGE / CARD ---------- */
+  .stage{
+    flex:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    perspective:1500px;
+  }
+
+  .card{
+    position:relative;
+    width:100%;
+    aspect-ratio: 3 / 4;
+    max-height:480px;
+  }
+
+  .bracket{
+    position:absolute;
+    width:22px;height:22px;
+    border-color:var(--cyan);
+    opacity:.8;
+    pointer-events:none;
+    z-index:3;
+  }
+  .bracket.tl{top:-1px;left:-1px;border-top:2px solid var(--cyan);border-left:2px solid var(--cyan);border-radius:6px 0 0 0;}
+  .bracket.tr{top:-1px;right:-1px;border-top:2px solid var(--cyan);border-right:2px solid var(--cyan);border-radius:0 6px 0 0;}
+  .bracket.bl{bottom:-1px;left:-1px;border-bottom:2px solid var(--cyan);border-left:2px solid var(--cyan);border-radius:0 0 0 6px;}
+  .bracket.br{bottom:-1px;right:-1px;border-bottom:2px solid var(--cyan);border-right:2px solid var(--cyan);border-radius:0 0 6px 0;}
+
+  .face{
+    position:absolute;
+    inset:0;
+    border-radius:14px;
+    padding:26px 22px;
+    display:flex;
+    flex-direction:column;
+    backface-visibility:hidden;
+    transform-style:preserve-3d;
+    transition:transform .5s cubic-bezier(.2,.8,.2,1);
+    border:1px solid var(--line);
+    background:
+      linear-gradient(180deg, rgba(0,229,255,0.05), transparent 40%),
+      linear-gradient(150deg, var(--panel) 0%, #070b0d 100%);
+    box-shadow:0 0 0 1px rgba(0,229,255,0.03), 0 30px 60px -30px rgba(0,0,0,0.9);
+    overflow:hidden;
+  }
+
+  .scanline{
+    position:absolute;
+    left:0;right:0;
+    height:60px;
+    background:linear-gradient(180deg, transparent, rgba(0,229,255,0.06), transparent);
+    animation:sweep 5s linear infinite;
+    pointer-events:none;
+  }
+  @keyframes sweep{
+    0%{ top:-60px; }
+    100%{ top:100%; }
+  }
+
+  /* FRONT */
+  .face--front{ justify-content:space-between; cursor:pointer; }
+  .glyph{
+    width:54px;height:54px;
+    border-radius:10px;
+    background:rgba(0,229,255,0.08);
+    border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;
+    color:var(--cyan);
+    flex-shrink:0;
+  }
+  .glyph svg{width:28px;height:28px;}
+  .glyph--small{ width:36px;height:36px; border-radius:8px; }
+  .glyph--small svg{width:18px;height:18px;}
+
+  .face--front .tag{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:.1em;
+    color:var(--cyan-dim);
+    margin-top:16px;
+  }
+  .face--front .prompt-text{
+    font-size:14.5px;
+    color:var(--text-1);
+    line-height:1.5;
+    margin-top:10px;
+  }
+  .tap-hint{
+    margin-top:auto;
+    font-family:var(--mono);
+    font-size:12px;
+    color:var(--cyan);
+    letter-spacing:.06em;
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .cursor{
+    display:inline-block;
+    width:7px;height:13px;
+    background:var(--cyan);
+    animation:blip 1s step-start infinite;
+  }
+
+  /* QUESTION */
+  .face--question{ transform:rotateY(180deg); justify-content:space-between; }
+  .q-top{ display:flex; align-items:center; gap:10px; }
+  .q-top .tag{ font-family:var(--mono); font-size:11px; letter-spacing:.1em; color:var(--cyan-dim); }
+  .statement{
+    font-size:19px;
+    font-weight:650;
+    line-height:1.4;
+    letter-spacing:-0.005em;
+    margin-top:16px;
+  }
+  .choices{ display:flex; gap:10px; margin-top:auto; }
+  .choice-btn{
+    flex:1;
+    padding:15px 0;
+    border-radius:8px;
+    font-family:var(--mono);
+    font-size:14px;
+    font-weight:600;
+    letter-spacing:.05em;
+    cursor:pointer;
+    background:transparent;
+    transition:transform .12s ease;
+  }
+  .choice-btn:active{ transform:scale(0.95); }
+  .choice-btn.true{
+    border:1px solid var(--cyan);
+    color:var(--cyan);
+    box-shadow:inset 0 0 14px rgba(0,229,255,0.08);
+  }
+  .choice-btn.false{
+    border:1px solid var(--magenta);
+    color:var(--magenta);
+    box-shadow:inset 0 0 14px rgba(255,47,110,0.08);
+  }
+
+  /* RESULT */
+  .face--result{ transform:rotateY(180deg); justify-content:space-between; }
+  .verdict-row{ display:flex; align-items:center; gap:10px; }
+  .verdict-tag{
+    font-family:var(--mono);
+    font-size:12px;
+    letter-spacing:.08em;
+    padding:5px 10px;
+    border-radius:4px;
+    font-weight:700;
+  }
+  .is-correct .verdict-tag{ color:var(--cyan); border:1px solid var(--cyan); background:rgba(0,229,255,0.08); }
+  .is-incorrect .verdict-tag{ color:var(--magenta); border:1px solid var(--magenta); background:rgba(255,47,110,0.08); }
+  .answer-line{
+    font-family:var(--mono);
+    font-size:12px;
+    color:var(--text-1);
+    margin-top:18px;
+    letter-spacing:.02em;
+  }
+  .answer-line b{ color:var(--text-0); }
+  .explanation{
+    font-size:14.5px;
+    line-height:1.55;
+    color:var(--text-0);
+    margin-top:8px;
+  }
+  .btn-next{
+    width:100%;
+    border:none;
+    border-radius:8px;
+    padding:15px 0;
+    font-family:var(--mono);
+    font-size:13.5px;
+    font-weight:700;
+    letter-spacing:.06em;
+    color:#04181c;
+    background:var(--cyan);
+    box-shadow:0 0 18px rgba(0,229,255,0.35);
+    cursor:pointer;
+  }
+  .btn-next:active{ transform:scale(0.97); }
+
+  /* FINAL */
+  .final-screen{
+    text-align:center;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:6px;
+    width:100%;
+  }
+  .final-screen .tag{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:.14em;
+    color:var(--cyan-dim);
+  }
+  .final-screen .big{
+    font-family:var(--mono);
+    font-size:52px;
+    font-weight:700;
+    color:var(--cyan);
+    text-shadow:0 0 24px rgba(0,229,255,0.45);
+    margin:6px 0 2px;
+  }
+  .final-screen .sub{
+    font-size:13.5px;
+    color:var(--text-1);
+    margin-bottom:16px;
+  }
+  .restart-btn{
+    padding:14px 24px;
+    border-radius:8px;
+    border:1px solid var(--line);
+    background:rgba(0,229,255,0.06);
+    color:var(--cyan);
+    font-family:var(--mono);
+    font-size:13px;
+    letter-spacing:.06em;
+    cursor:pointer;
+  }
+  .restart-btn:active{ transform:scale(0.97); }
+
+  @media (prefers-reduced-motion: reduce){
+    .face{transition:none;}
+    .scanline, .blip, .cursor{animation:none;}
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="topbar">
+    <div class="brand">
+      <div class="kicker"><span class="blip"></span>SYS // PRO-SPEC.SCAN</div>
+      <div class="title">iPhone <span>Pro</span> Fact Check</div>
+    </div>
+    <div class="score">
+      <div class="label">ACCURACY</div>
+      <div id="scoreText">00 / 00</div>
+    </div>
+  </div>
+
+  <div class="segments" id="segments"></div>
+
+  <div class="stage" id="stage"></div>
+</div>
+
+<script>
+const ICONS = {
+  "Materials": `<svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="14" y="6" width="20" height="36" rx="6" stroke="currentColor" stroke-width="2.4"/>
+    <path d="M14 15h20M14 33h20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    <path d="M20 24l3 3 5-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`,
+  "Camera": `<svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="7" y="15" width="34" height="23" rx="5" stroke="currentColor" stroke-width="2.4"/>
+    <path d="M17 15l2.5-4h9L31 15" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/>
+    <circle cx="24" cy="27" r="7" stroke="currentColor" stroke-width="2.4"/>
+    <circle cx="24" cy="27" r="2.6" fill="currentColor"/>
+    <circle cx="35" cy="20" r="1.4" fill="currentColor"/>
+  </svg>`,
+  "Display": `<svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="12" y="7" width="24" height="34" rx="5" stroke="currentColor" stroke-width="2.4"/>
+    <path d="M20 41h8" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+    <path d="M17 15h14M17 21h14M17 27h9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+  </svg>`,
+  "Controls": `<svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="7" y="18" width="22" height="12" rx="6" stroke="currentColor" stroke-width="2.4"/>
+    <circle cx="23" cy="24" r="3.6" fill="currentColor"/>
+    <path d="M34 15v18M40 20v8" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+  </svg>`,
+  "Performance": `<svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="14" y="14" width="20" height="20" rx="3" stroke="currentColor" stroke-width="2.4"/>
+    <rect x="20" y="20" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="2.2"/>
+    <path d="M20 8v5M28 8v5M20 35v5M28 35v5M8 20h5M8 28h5M35 20h5M35 28h5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+  </svg>`
+};
+
+const QUESTIONS = [
+  { cat:"Materials", statement:"iPhone 15 Pro was the first iPhone to use a titanium frame.", answer:true,
+    explanation:"iPhone 15 Pro and Pro Max introduced a grade 5 titanium frame in 2023, replacing the stainless steel band used on earlier Pro models." },
+  { cat:"Materials", statement:"iPhone 17 Pro and Pro Max kept titanium frames for a third year running.", answer:false,
+    explanation:"Apple switched the 17 Pro line to a forged aluminum unibody, saying it dissipates heat far better than titanium did." },
+  { cat:"Materials", statement:"iPhone Air uses a titanium frame, even though the Pro models moved away from it.", answer:true,
+    explanation:"With the 17 lineup, Apple flipped the script: the ultra-thin iPhone Air kept titanium for rigidity while Pro and Pro Max switched to aluminum." },
+  { cat:"Camera", statement:"The LiDAR Scanner has been exclusive to Pro models since the iPhone 12 Pro.", answer:true,
+    explanation:"Apple has kept the LiDAR Scanner, used for depth sensing and faster autofocus in low light, limited to the Pro line since it debuted in 2020." },
+  { cat:"Camera", statement:"ProRes video recording is available on every iPhone model, not just Pro.", answer:false,
+    explanation:"ProRes, a professional-grade video format, remains limited to Pro and Pro Max because of the storage and processing power it demands." },
+  { cat:"Display", statement:"ProMotion's adaptive 120Hz refresh rate is now available across the whole iPhone 17 lineup, not just Pro models.", answer:true,
+    explanation:"Starting with iPhone 17, Apple extended ProMotion and Always-On display to the standard iPhone 17 and iPhone Air, ending its Pro-only status." },
+  { cat:"Display", statement:"iPhone 17 Pro Max has a smaller display than the iPhone 17 Pro.", answer:false,
+    explanation:"The Pro Max name signals a bigger footprint: the 17 Pro Max uses a 6.9-inch display versus the 17 Pro's 6.3-inch panel." },
+  { cat:"Controls", statement:"The Action button first launched as a Pro-only feature, then came to every model the following year.", answer:true,
+    explanation:"Apple introduced the Action button exclusively on iPhone 15 Pro and Pro Max, then extended it across the whole iPhone 16 lineup a year later." },
+  { cat:"Controls", statement:"The Camera Control button launched as a Pro-exclusive feature.", answer:false,
+    explanation:"Unlike the Action button, Camera Control arrived on every iPhone 16 model at the same time, not just the Pro line." },
+  { cat:"Performance", statement:"Pro Max models have historically had shorter battery life than the standard Pro model.", answer:false,
+    explanation:"Thanks to their larger bodies, Pro Max models pack bigger batteries and typically deliver longer battery life than the same year's Pro model." }
+];
+
+let deck = [];
+let index = 0;
+let score = 0;
+let answered = 0;
+
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
+function pad(n){ return n < 10 ? '0'+n : ''+n; }
+
+function buildSegments(){
+  const wrap = document.getElementById('segments');
+  wrap.innerHTML = '';
+  for(let i=0;i<deck.length;i++){
+    const s = document.createElement('div');
+    s.className = 'seg';
+    wrap.appendChild(s);
+  }
+}
+
+function updateSegments(){
+  const segs = document.querySelectorAll('.seg');
+  segs.forEach((s,i)=>{
+    s.classList.remove('done','current');
+    if(i < index) s.classList.add('done');
+    else if(i === index) s.classList.add('current');
+  });
+}
+
+function init(){
+  deck = shuffle(QUESTIONS);
+  index = 0;
+  score = 0;
+  answered = 0;
+  buildSegments();
+  renderCard();
+  updateHeader();
+}
+
+function updateHeader(){
+  document.getElementById('scoreText').textContent = `${pad(score)} / ${pad(answered)}`;
+  updateSegments();
+}
+
+function renderCard(){
+  const stage = document.getElementById('stage');
+
+  if(index >= deck.length){
+    stage.innerHTML = `
+      <div class="final-screen">
+        <div class="tag">SCAN COMPLETE</div>
+        <div class="big">${pad(score)}/${pad(deck.length)}</div>
+        <div class="sub">Pro-spec facts verified correctly</div>
+        <button class="restart-btn" id="restartBtn">&gt; RESTART_SCAN</button>
+      </div>`;
+    updateSegments();
+    document.getElementById('restartBtn').onclick = init;
+    return;
+  }
+
+  const q = deck[index];
+
+  stage.innerHTML = `
+    <div class="card" id="card">
+      <div class="bracket tl"></div><div class="bracket tr"></div>
+      <div class="bracket bl"></div><div class="bracket br"></div>
+      <div class="face face--front" id="frontFace">
+        <div class="scanline"></div>
+        <div class="glyph">${ICONS[q.cat] || ICONS["Performance"]}</div>
+        <div>
+          <div class="tag">// ${q.cat.toUpperCase()}</div>
+          <p class="prompt-text">Tap to decrypt a claim about iPhone Pro / Pro Max, then classify it TRUE or FALSE.</p>
+        </div>
+        <div class="tap-hint">TAP TO SCAN<span class="cursor"></span></div>
+      </div>
+      <div class="face face--question" id="questionFace">
+        <div class="q-top">
+          <div class="glyph glyph--small">${ICONS[q.cat] || ICONS["Performance"]}</div>
+          <div class="tag">// ${q.cat.toUpperCase()}</div>
+        </div>
+        <div class="statement">${q.statement}</div>
+        <div class="choices">
+          <button class="choice-btn true" data-choice="true">TRUE</button>
+          <button class="choice-btn false" data-choice="false">FALSE</button>
+        </div>
+      </div>
+    </div>`;
+
+  const frontFace = document.getElementById('frontFace');
+  const questionFace = document.getElementById('questionFace');
+
+  frontFace.addEventListener('click', () => {
+    frontFace.style.transform = 'rotateY(180deg)';
+    questionFace.style.transform = 'rotateY(0deg)';
+  }, { once:true });
+
+  document.querySelectorAll('.choice-btn').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const userChoice = btn.dataset.choice === 'true';
+      showResult(q, userChoice);
+    });
+  });
+}
+
+function showResult(q, userChoice){
+  const isCorrect = userChoice === q.answer;
+  answered++;
+  if(isCorrect) score++;
+  updateHeader();
+
+  const stage = document.getElementById('stage');
+  const resultClass = isCorrect ? 'is-correct' : 'is-incorrect';
+  const label = isCorrect ? 'VERIFIED' : 'MISMATCH';
+
+  stage.innerHTML = `
+    <div class="card">
+      <div class="bracket tl"></div><div class="bracket tr"></div>
+      <div class="bracket bl"></div><div class="bracket br"></div>
+      <div class="face face--result ${resultClass}" style="transform:rotateY(0deg);">
+        <div>
+          <div class="verdict-row">
+            <div class="verdict-tag">${label}</div>
+          </div>
+          <div class="answer-line">STATEMENT.STATUS = <b>${q.answer ? 'TRUE' : 'FALSE'}</b></div>
+          <p class="explanation">${q.explanation}</p>
+        </div>
+        <button class="btn-next" id="nextBtn">NEXT SCAN &gt;</button>
+      </div>
+    </div>`;
+
+  document.getElementById('nextBtn').addEventListener('click', ()=>{
+    index++;
+    renderCard();
+    updateHeader();
+  });
+}
+
+init();
+</script>
+</body>
+</html>
